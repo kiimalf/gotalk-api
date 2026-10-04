@@ -6,6 +6,7 @@ require (
 	github.com/go-playground/validator/v10 v10.30.5
 	github.com/gofiber/fiber/v2 v2.52.15
 	github.com/joho/godotenv v1.5.1
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
 require (
