@@ -79,6 +79,41 @@ func (s *AuthService) Register(c *fiber.Ctx) error {
 		"/api/v1/users/"+strconv.Itoa(created.ID))
 }
 
+func (s *AuthService) Login(c *fiber.Ctx) error {
+	ctx, cancel := helper.RequestContext(c)
+	defer cancel()
+
+	var req model.LoginRequest
+	if err := c.BodyParser(&req); err != nil {
+		return helper.BadRequest("Body harus berupa JSON yang valid")
+	}
+
+	if errs := helper.ValidateStruct(req); errs != nil {
+		return helper.Validation(errs)
+	}
+
+	user, err := s.users.FindByUsername(ctx, strings.TrimSpace(req.Username))
+	if err != nil {
+		helper.VerifyDummyPassword(req.Password)
+		return helper.Unauthorized("Username atau password salah")
+	}
+
+	if !helper.VerifyPassword(user.Password, req.Password) {
+		return helper.Unauthorized("Username atau password salah")
+	}
+
+	if !user.IsActive {
+		return helper.Forbidden("Akun anda dinonaktifkan")
+	}
+
+	pair, err := s.issueTokenPair(ctx, user)
+	if err != nil {
+		return helper.Internal(err)
+	}
+
+	return helper.Success(c, fiber.StatusOK, "Login berhasil", pair)
+}
+
 func (s *AuthService) issueTokenPair(ctx context.Context, user model.User) (model.TokenPair, error) {
 	accessToken, err := s.jwt.GenerateAccess(user)
 	if err != nil {
