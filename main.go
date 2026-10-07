@@ -4,15 +4,28 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"time"
 
+	"gotalk-api/app/repository"
+	"gotalk-api/app/service"
 	"gotalk-api/config"
 	"gotalk-api/database"
+	"gotalk-api/helper"
 	"gotalk-api/route"
 )
+
+const minSecretLength = 32
 
 func main() {
 	config.LoadEnv()
 	logger := config.NewLogger()
+
+	jwtSecret := config.GetEnv("JWT_SECRET", "")
+	if len(jwtSecret) < minSecretLength {
+		logger.Error("JWT_SECRET tidak diisi atau terlalu pendek",
+			slog.Int("minimal_karakter", minSecretLength))
+		os.Exit(1)
+	}
 
 	pool, err := database.NewPool(context.Background())
 	if err != nil {
@@ -21,8 +34,32 @@ func main() {
 	}
 	defer pool.Close()
 
+	jwtManager := helper.NewJWTManager(
+		jwtSecret,
+		config.GetEnv("JWT_ISSUER", "gotalk-api"),
+		time.Duration(config.GetEnvInt("JWT_ACCESS_TTL_MINUTES", 15))*time.Minute,
+	)
+
+	userRepository := repository.NewUserRepository(pool)
+	tokenRepository := repository.NewTokenRepository(pool)
+	roleRepository := repository.NewRoleRepository(pool)
+
+	rawPermissions, err := roleRepository.LoadPermissions(context.Background())
+	if err != nil {
+		logger.Error("Gagal memuat permission", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	permissions := helper.NewPermissionSet(rawPermissions)
+	logger.Info("Permission dimuat", slog.Any("roles", permissions.KnownRoles()))
+
+	authService := service.NewAuthService(
+		userRepository, tokenRepository, jwtManager, permissions,
+		time.Duration(config.GetEnvInt("JWT_REFRESH_TTL_DAYS", 7))*24*time.Hour,
+	)
+
 	app := config.NewApp(logger, route.Dependencies{
-		Pool: pool,
+		Pool:        pool,
+		AuthService: authService,
 	})
 
 	port := config.GetEnv("APP_PORT", "3000")

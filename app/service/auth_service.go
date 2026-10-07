@@ -114,6 +114,59 @@ func (s *AuthService) Login(c *fiber.Ctx) error {
 	return helper.Success(c, fiber.StatusOK, "Login berhasil", pair)
 }
 
+func (s *AuthService) Refresh(c *fiber.Ctx) error {
+	ctx, cancel := helper.RequestContext(c)
+	defer cancel()
+
+	var req model.RefreshRequest
+	if err := c.BodyParser(&req); err != nil {
+		return helper.BadRequest("Body harus berupa JSON yang valid")
+	}
+
+	if strings.TrimSpace(req.RefreshToken) == "" {
+		return helper.BadRequest("refresh_token wajib diisi")
+	}
+
+	hash := helper.SHA256Hex(req.RefreshToken)
+
+	stored, err := s.tokens.FindActive(ctx, hash)
+	if err != nil {
+		return helper.Unauthorized("Refresh token tidak valid atau sudah kadaluwarsa")
+	}
+
+	user, err := s.users.FindByID(ctx, stored.UserID)
+	if err != nil || !user.IsActive {
+		return helper.Unauthorized("Akun tidak dapat dipakai")
+	}
+
+	if err := s.tokens.Revoke(ctx, hash); err != nil {
+		return helper.Internal(err)
+	}
+
+	pair, err := s.issueTokenPair(ctx, user)
+	if err != nil {
+		return helper.Internal(err)
+	}
+
+	return helper.Success(c, fiber.StatusOK, "Token berhasil diperbarui", pair)
+}
+
+func (s *AuthService) Logout(c *fiber.Ctx) error {
+	ctx, cancel := helper.RequestContext(c)
+	defer cancel()
+
+	var req model.RefreshRequest
+	if err := c.BodyParser(&req); err != nil {
+		return helper.BadRequest("Body harus berupa JSON yang valid")
+	}
+
+	if strings.TrimSpace(req.RefreshToken) != "" {
+		_ = s.tokens.Revoke(ctx, helper.SHA256Hex(req.RefreshToken))
+	}
+
+	return helper.Success(c, fiber.StatusOK, "Logout berhasil", nil)
+}
+
 func (s *AuthService) issueTokenPair(ctx context.Context, user model.User) (model.TokenPair, error) {
 	accessToken, err := s.jwt.GenerateAccess(user)
 	if err != nil {
