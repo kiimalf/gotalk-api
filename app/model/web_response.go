@@ -40,7 +40,7 @@ func (q ListQuery) Offset() int {
 
 type Cursor struct {
 	CreatedAt time.Time
-	ID        int
+	ID        int64
 }
 
 type CursorQuery struct {
