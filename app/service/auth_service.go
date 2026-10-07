@@ -194,3 +194,23 @@ func (s *AuthService) issueTokenPair(ctx context.Context, user model.User) (mode
 		ExpiresIn:    int(s.jwt.AccessTTL().Seconds()),
 	}, nil
 }
+
+func (s *AuthService) Me(c *fiber.Ctx) error {
+	ctx, cancel := helper.RequestContext(c)
+	defer cancel()
+
+	authUser, ok := helper.CurrentUser(c)
+	if !ok {
+		return helper.Unauthorized("Belum terautentikasi")
+	}
+
+	user, err := s.users.FindByID(ctx, authUser.UserID)
+	if err != nil {
+		return helper.Unauthorized("User tidak ditemukan")
+	}
+
+	return helper.Success(c, fiber.StatusOK, "Profil berhasil diambil", fiber.Map{
+		"user":        user,
+		"permissions": s.perms.PermissionsOf(user.Role),
+	})
+}
