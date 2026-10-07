@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"gotalk-api/app/model"
@@ -89,7 +89,9 @@ func (r *userPostgresRepository) FindAll(ctx context.Context, q model.ListQuery)
 	users := []model.User{}
 	for rows.Next() {
 		var u model.User
-		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.Password, &u.Role, &u.IsActive, &u.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&u.ID, &u.Username, &u.Email, &u.Password, &u.Role, &u.IsActive, &u.CreatedAt, &u.UpdatedAt,
+		); err != nil {
 			return nil, 0, err
 		}
 		users = append(users, u)
@@ -121,7 +123,7 @@ func (r *userPostgresRepository) FindAfterCursor(ctx context.Context, q model.Cu
 	users := []model.User{}
 	for rows.Next() {
 		var u model.User
-		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.Password, &u.Role, &u.IsActive, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.Password, &u.Role, &u.IsActive, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -134,7 +136,7 @@ func (r *userPostgresRepository) FindByID(ctx context.Context, id int) (model.Us
 	query := `SELECT id, username, email, password_hash, role, is_active, created_at, updated_at
 	          FROM users WHERE id = $1`
 	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&u.ID, &u.Username, &u.Email, &u.Password, &u.Role, &u.IsActive, &u.CreatedAt,
+		&u.ID, &u.Username, &u.Email, &u.Password, &u.Role, &u.IsActive, &u.CreatedAt, &u.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -150,7 +152,7 @@ func (r *userPostgresRepository) FindByUsername(ctx context.Context, username st
 	query := `SELECT id, username, email, password_hash, role, is_active, created_at, updated_at
 	          FROM users WHERE LOWER(username) = LOWER($1)`
 	err := r.pool.QueryRow(ctx, query, username).Scan(
-		&u.ID, &u.Username, &u.Email, &u.Password, &u.Role, &u.IsActive, &u.CreatedAt,
+		&u.ID, &u.Username, &u.Email, &u.Password, &u.Role, &u.IsActive, &u.CreatedAt, &u.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -166,7 +168,7 @@ func (r *userPostgresRepository) FindByEmail(ctx context.Context, email string) 
 	query := `SELECT id, username, email, password_hash, role, is_active, created_at, updated_at
 	          FROM users WHERE LOWER(email) = LOWER($1)`
 	err := r.pool.QueryRow(ctx, query, email).Scan(
-		&u.ID, &u.Username, &u.Email, &u.Password, &u.Role, &u.IsActive, &u.CreatedAt,
+		&u.ID, &u.Username, &u.Email, &u.Password, &u.Role, &u.IsActive, &u.CreatedAt, &u.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -206,7 +208,7 @@ func (r *userPostgresRepository) Create(ctx context.Context, u model.User) (mode
 	          VALUES ($1, $2, $3, $4, $5)
 	          RETURNING id, created_at, updated_at`
 	err := r.pool.QueryRow(ctx, query, u.Username, u.Email, u.Password, u.Role, u.IsActive).
-		Scan(&u.ID, &u.CreatedAt)
+		Scan(&u.ID, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return model.User{}, ErrDuplicate
@@ -221,7 +223,7 @@ func (r *userPostgresRepository) Update(ctx context.Context, u model.User) (mode
 	          WHERE id = $5
 	          RETURNING id, username, email, password_hash, role, is_active, created_at, updated_at`
 	err := r.pool.QueryRow(ctx, query, u.Username, u.Email, u.Role, u.IsActive, u.ID).Scan(
-		&u.ID, &u.Username, &u.Email, &u.Password, &u.Role, &u.IsActive, &u.CreatedAt,
+		&u.ID, &u.Username, &u.Email, &u.Password, &u.Role, &u.IsActive, &u.CreatedAt, &u.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -241,7 +243,7 @@ func (r *userPostgresRepository) UpdateRole(ctx context.Context, id int, role st
 	          WHERE id = $2
 	          RETURNING id, username, email, password_hash, role, is_active, created_at, updated_at`
 	err := r.pool.QueryRow(ctx, query, role, id).Scan(
-		&u.ID, &u.Username, &u.Email, &u.Password, &u.Role, &u.IsActive, &u.CreatedAt,
+		&u.ID, &u.Username, &u.Email, &u.Password, &u.Role, &u.IsActive, &u.CreatedAt, &u.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
