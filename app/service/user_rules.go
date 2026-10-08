@@ -10,7 +10,7 @@ func IsEmptyPatch(req model.PatchUserRequest) bool {
 	return req.Username == nil && req.Email == nil && req.IsActive == nil
 }
 
-func ApplyPatch(current model.User, req model.PatchUserRequest) model.User {
+func ApplyPatch(current *model.User, req model.PatchUserRequest) model.User {
 	if req.Username != nil {
 		current.Username = strings.TrimSpace(*req.Username)
 	}
@@ -23,5 +23,5 @@ func ApplyPatch(current model.User, req model.PatchUserRequest) model.User {
 		current.IsActive = *req.IsActive
 	}
 
-	return current
+	return *current
 }

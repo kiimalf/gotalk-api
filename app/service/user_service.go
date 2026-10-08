@@ -203,7 +203,7 @@ func (s *UserService) Patch(c *fiber.Ctx) error {
 		return translateError(err, "user")
 	}
 
-	currentData = ApplyPatch(currentData, req)
+	currentData = ApplyPatch(&currentData, req)
 
 	updated, err := s.repo.Update(ctx, currentData)
 	if err != nil {

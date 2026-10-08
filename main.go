@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"gotalk-api/app/repository"
@@ -71,9 +73,29 @@ func main() {
 	})
 
 	port := config.GetEnv("APP_PORT", "3000")
+
+	go func() {
+		if err := app.Listen(":" + port); err != nil {
+			logger.Error("Server berhenti", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+	}()
+
 	logger.Info("Server berjalan", slog.String("port", port))
-	if err := app.Listen(":" + port); err != nil {
-		logger.Error("Server berhenti", slog.String("error", err.Error()))
-		os.Exit(1)
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Info("Sinyal berhenti diterima, menutup server")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := app.ShutdownWithContext(ctx); err != nil {
+		logger.Error("Gagal menutup server dengan rapi",
+			slog.String("error", err.Error()))
 	}
+
+	logger.Info("Server berhenti dengan rapi")
 }
