@@ -43,6 +43,8 @@ func main() {
 	userRepository := repository.NewUserRepository(pool)
 	tokenRepository := repository.NewTokenRepository(pool)
 	roleRepository := repository.NewRoleRepository(pool)
+	chatRepository := repository.NewChatRepository(pool)
+	messageRepository := repository.NewMessageRepository(pool)
 
 	rawPermissions, err := roleRepository.LoadPermissions(context.Background())
 	if err != nil {
@@ -57,6 +59,7 @@ func main() {
 		userRepository, tokenRepository, jwtManager, permissions,
 		time.Duration(config.GetEnvInt("JWT_REFRESH_TTL_DAYS", 7))*24*time.Hour,
 	)
+	chatService := service.NewChatService(chatRepository, messageRepository, userRepository)
 
 	app := config.NewApp(logger, route.Dependencies{
 		Pool:        pool,
@@ -64,6 +67,7 @@ func main() {
 		Permissions: permissions,
 		AuthService: authService,
 		UserService: userService,
+		ChatService: chatService,
 	})
 
 	port := config.GetEnv("APP_PORT", "3000")

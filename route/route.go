@@ -18,6 +18,7 @@ type Dependencies struct {
 	Permissions *helper.PermissionSet
 	AuthService *service.AuthService
 	UserService *service.UserService
+	ChatService *service.ChatService
 }
 
 func Register(app *fiber.App, deps Dependencies) {
@@ -54,6 +55,18 @@ func Register(app *fiber.App, deps Dependencies) {
 	users.Get("/:id", deps.UserService.Get)
 	users.Put("/:id", deps.UserService.Replace)
 	users.Patch("/:id", deps.UserService.Patch)
+
+	chats := api.Group("/chats", middleware.RequireJSON, middleware.RequireAuth(deps.JWT))
+
+	chats.Post("/", middleware.RequireJSON, deps.ChatService.CreateOrGetRoom)
+	chats.Get("/", deps.ChatService.ListRooms)
+	chats.Get("/:id/messages", deps.ChatService.ListMessages)
+	chats.Post("/:id/messages", middleware.RequireJSON, deps.ChatService.SendMessage)
+
+	messages := api.Group("/messages", middleware.RequireJSON, middleware.RequireAuth(deps.JWT))
+
+	messages.Put("/:id", middleware.RequireJSON, deps.ChatService.UpdateMessage)
+	messages.Delete("/:id", deps.ChatService.DeleteMessage)
 }
 
 func healthCheck(pool *pgxpool.Pool) fiber.Handler {
